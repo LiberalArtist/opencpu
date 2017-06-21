@@ -220,7 +220,19 @@ of @tech{R packages}.
  @tech{R functions} to be added when the contract is checked.
 }
 
+@defform[(dataframe-entry/c [key-id . contract-expr] ...)
+         #:contracts ([contract-expr flat-contract?])]{
+ Creates a flat contract accepting immutable, @racket[eq?]-based hash-tables
+ consisting of @italic{exactly} the symbolic form of each @racket[key-id]
+ as keys (i.e. hashes with missing or extra keys will be rejected),
+ where each corresponding value must satisfy @racket[(and/c contract-expr any/r)].
+ Thus, the resulting contract is more strict than @racket[hash/r].
 
+ These contracts may be used in any context, but are particularly useful in
+ writing contracts for R "data frame" values, which are represented as a list
+ of hash tables conforming to the same @racket[dataframe-entry/c] contract,
+ where each @racket[key-id] is translated as the heading of "column" of the dataframe.
+}
 
 @section{Exceptions}
 

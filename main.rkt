@@ -18,6 +18,7 @@
          list/r
          hash/r
          list-no-duplicates/c
+         dataframe-entry/c
          (struct-out r-package) ;protected by structure
          r-package-can-add-functions/c
          opencpu-server<%>
@@ -494,7 +495,7 @@ global packages : (or/c #f (listof r-package?))
               (format "  status code: ~e" status))
              (current-continuation-marks)
              status))]))
-
+#|
 (module+ test
   (define-r-function rnorm
     (r-package "stats"))
@@ -504,7 +505,7 @@ global packages : (or/c #f (listof r-package?))
                  [sd . 10]))
 
   (rnorm #hasheq([n . 2])))
-
+|#
 (define caching-opencpu-server%
   (custom-write-mixin
    (class* object% {opencpu-server<%> pre-printable<%>}
@@ -535,3 +536,29 @@ global packages : (or/c #f (listof r-package?))
 
 (define (make-caching-opencpu-server inner-server)
   (new caching-opencpu-server% [inner-server inner-server]))
+
+
+(define-syntax (dataframe-entry/c stx)
+  (define-syntax-class entry-spec
+    #:attributes {key contract}
+    (pattern [key:id . raw-contract]
+             #:declare raw-contract (expr/c #'flat-contract?)
+             #:with contract #'(coerce-flat-contract 'dataframe-entry/c raw-contract.c)))
+  (syntax-parse stx
+    [(_ entry:entry-spec ...+)
+     #:with (entry-contract ...) (generate-temporaries (syntax-e #'(entry.contract ...)))
+     #'(let* ([entry-contract entry.contract] ...
+              [lst (list (cons 'entry.key entry-contract) ...)]
+              [tbl (make-immutable-hasheq lst)])
+         (rename-contract
+          (and/c (hash/dc [k (or/c 'entry.key ...)]
+                                  [v (k)
+                                     (case k
+                                       [(entry.key) (and/c any/r entry-contract)]
+                                       ...
+                                       [else none/c])]
+                                  #:immutable #t #:kind 'flat)
+                         hash-eq?
+                         (λ (cf) (hash-keys-subset? tbl cf)))
+          `(dataframe-entry/c [entry.key . ,(contract-name entry-contract)] ...)))]))
+                                        
